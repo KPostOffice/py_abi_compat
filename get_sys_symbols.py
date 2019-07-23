@@ -26,7 +26,7 @@ def get_sys_symbols():
     os.chdir("/etc/")
     with open("/etc/ld.so.conf", "r") as f:
         for line in f.readlines():
-            paths = glob.glob("ld.so.conf.d/*.conf")
+            paths = glob.glob(line[:-1])
             for path in paths:
                 with open(path, "r") as conf_file:
                     for conf_path in conf_file.readlines():

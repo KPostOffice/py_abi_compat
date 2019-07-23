@@ -1,4 +1,5 @@
 import elftools
+import tarfile
 import itertools
 import logging
 import os
@@ -44,8 +45,13 @@ def get_versioned_symbols_in_dir(root: str):
 
 def get_versioned_symbols_from_whl(whl: str):
     tempdir = tempfile.mkdtemp()
-    with zipfile.ZipFile(whl, "r") as zip_ref:
-        zip_ref.extractall(tempdir)
+    try:
+        with zipfile.ZipFile(whl, "r") as zip_ref:
+            zip_ref.extractall(tempdir)
+            to_ret = get_versioned_symbols_in_dir(tempdir)
+    except:
+        tf = tarfile.open(whl)
+        tf.extractall(tempdir)
         to_ret = get_versioned_symbols_in_dir(tempdir)
     
     shutil.rmtree(tempdir)
@@ -58,10 +64,10 @@ This function returns a tuple. 1 in position 0 represents GCC < 5,
 generate a representative tuple for each wheel file and do an elementwise sum.
 If neither position is zero, then it may fail due to CXX11 ABI incompatability
 """
-def gcc_version_from_cpp_syms(symbols: set) -> tuple:
-    to_ret = (0, 0)
+def gcc_version_from_cpp_syms(symbols: set) -> list:
+    to_ret = [0, 0]
     for sym in symbols:
-        s = sym.split("_"):
+        s = sym.split("_")
         if s[0] == "GLIBCXX":
             if version.parse(s[1]) < version.parse("3.4.21"):
                 to_ret[0] = 1
@@ -72,6 +78,8 @@ def gcc_version_from_cpp_syms(symbols: set) -> tuple:
                 to_ret[0] = 1
             else:
                 to_ret[1] = 1
+
+    return to_ret
 
 if __name__ == "__main__":
     syms = get_versioned_symbols_from_whl("/home/kpostlet/temp/protobuf-3.8.0-cp27-cp27mu-manylinux1_x86_64.whl")
