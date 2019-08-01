@@ -11,10 +11,13 @@ def get_top_packages(n=100):
     json_data = json.loads(response.text)
     return [x["project"] for x in json_data["rows"][:n]]
 
-def get_top_package_symbols(result, n=100):
+def get_top_package_symbols(result, n=100, constraints = None):
     for package in get_top_packages(n):
         dirpath = tempfile.mkdtemp()
-        subprocess.run(["pip", "download", package, "--no-deps", "-d", dirpath])
+        command = ["pip", "download", package, "--no-deps", "-d", dirpath]
+        if constraints is not None:
+            command = command + ["-r", constraints]
+        subprocess.run(command)
         for f in os.listdir(dirpath):
             result[package] = get_wheel_symbols.get_versioned_symbols_from_whl(os.path.join(dirpath, f))
 
