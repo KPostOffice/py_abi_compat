@@ -25,37 +25,37 @@ def _is_elf(filename: str):
     with open(filename, "rb") as f:
         return f.read(16).startswith(b'\x7f\x45\x4c\x46')
 
-def get_versioned_symbols_from_file(filename: str):
+def get_versioned_symbols_from_file(result: dict,filename: str):
     to_ret = set()
     with open(filename, "rb") as f:
         if not _is_elf(filename):
             return to_ret
         elf = ELFFile(f)
-        for _,sym in elf_find_versioned_symbols(elf):
-            to_ret.add(sym)
-    return to_ret
+        for lib,sym in elf_find_versioned_symbols(elf):
+            if result.get(lib) is None:
+                result[lib] = set()
+            result[lib].add(sym)
 
-def get_versioned_symbols_in_dir(root: str):
+def get_versioned_symbols_in_dir(result: dict, root: str):
     to_ret = set({})
     for dirName, subdirList, fileList in os.walk(root):
         for fname in fileList:
-            to_ret = to_ret | get_versioned_symbols_from_file(os.path.join(dirName, fname))
-
-    return to_ret
+            get_versioned_symbols_from_file(result, os.path.join(dirName, fname))
 
 def get_versioned_symbols_from_whl(whl: str):
     tempdir = tempfile.mkdtemp()
+    result = {}
     try:
         with zipfile.ZipFile(whl, "r") as zip_ref:
             zip_ref.extractall(tempdir)
-            to_ret = get_versioned_symbols_in_dir(tempdir)
+            get_versioned_symbols_in_dir(result, tempdir)
     except:
         tf = tarfile.open(whl)
         tf.extractall(tempdir)
-        to_ret = get_versioned_symbols_in_dir(tempdir)
+        get_versioned_symbols_in_dir(result, tempdir)
     
     shutil.rmtree(tempdir)
-    return to_ret
+    return {path: list(symbols) for path, symbols in result.items()}
 
 
 """
@@ -82,6 +82,5 @@ def gcc_version_from_cpp_syms(symbols: set) -> list:
     return to_ret
 
 if __name__ == "__main__":
-    syms = get_versioned_symbols_from_whl("/home/kpostlet/temp/protobuf-3.8.0-cp27-cp27mu-manylinux1_x86_64.whl")
-    print(syms)
-
+    result = get_versioned_symbols_from_whl("pyarrow-0.14.1-cp36-cp36m-manylinux2010_x86_64.whl")
+    print(result)
